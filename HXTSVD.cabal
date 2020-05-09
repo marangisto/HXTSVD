@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 2d44b9ea6de789c7561b6722604113848bbd5cdad415f1f9b4ccb289a759f655
+-- hash: 3b92db7e67613919650dc653528ae8e359dc4d869b8cbba781d337d52a443621
 
 name:           HXTSVD
 version:        0.1.0.0
@@ -33,6 +33,7 @@ library
   build-depends:
       base >=4.7 && <5
     , hxt
+    , text
   default-language: Haskell2010
 
 executable HXTSVD
@@ -46,6 +47,7 @@ executable HXTSVD
       HXTSVD
     , base >=4.7 && <5
     , hxt
+    , text
   default-language: Haskell2010
 
 test-suite HXTSVD-test
@@ -60,4 +62,5 @@ test-suite HXTSVD-test
       HXTSVD
     , base >=4.7 && <5
     , hxt
+    , text
   default-language: Haskell2010

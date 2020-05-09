@@ -3,46 +3,47 @@
 module Main (main) where
 
 import Text.XML.HXT.Core
+import Data.Text (Text, pack)
 
 data SVD = SVD
-    { name          :: String
-    , version       :: String
-    , description   :: String
-    , peripherals   :: [Peripheral]
-    , interrupts    :: [Interrupt]
+    { name          :: !Text
+    , version       :: !Text
+    , description   :: !Text
+    , peripherals   :: ![Peripheral]
+    , interrupts    :: ![Interrupt]
     } deriving (Show)
 
 data Peripheral = Peripheral
-    { name          :: String
-    , description   :: String
-    , groupName     :: String
-    , baseAddress   :: Int
-    , registers     :: [Register]
-    , derivedFrom   :: Maybe String
+    { name          :: !Text
+    , description   :: !Text
+    , groupName     :: !Text
+    , baseAddress   :: !Int
+    , registers     :: ![Register]
+    , derivedFrom   :: !(Maybe Text)
     } deriving (Show)
 
 data Interrupt = Interrupt
-    { name          :: String
-    , description   :: String
-    , value         :: Int
+    { name          :: !Text
+    , description   :: !Text
+    , value         :: !Int
     } deriving (Show)
 
 data Register = Register
-    { name          :: String
-    , displayName   :: String
-    , description   :: String
-    , addressOffset :: Int
-    , size          :: Int
-    , access        :: Maybe String
-    , resetValue    :: Int
-    , fields        :: [Field]
+    { name          :: !Text
+    , displayName   :: !Text
+    , description   :: !Text
+    , addressOffset :: !Int
+    , size          :: !Int
+    , access        :: !(Maybe Text)
+    , resetValue    :: !Int
+    , fields        :: ![Field]
     } deriving (Show)
 
 data Field = Field
-    { name          :: String
-    , description   :: String
-    , bitOffset     :: Int
-    , bitWidth      :: Int
+    { name          :: !Text
+    , description   :: !Text
+    , bitOffset     :: !Int
+    , bitWidth      :: !Int
     } deriving (Show)
 
 getSVD = atTag "device" >>>
@@ -53,9 +54,9 @@ getSVD = atTag "device" >>>
         peripherals <- listA getPeripheral <<< list "peripherals" -< x
         interrupts <- listA getInterrupt -< x
         returnA -< SVD
-            { name = name
-            , version = version
-            , description = description
+            { name = pack name
+            , version = pack version
+            , description = pack description
             , peripherals = peripherals
             , interrupts = interrupts
             }
@@ -69,12 +70,12 @@ getPeripheral = atTag "peripheral" >>>
         derivedFrom <- elemTextMay "derivedFrom" -< x
         registers <- listA getRegister <<< list "registers" -< x
         returnA -< Peripheral
-            { name = name
-            , description = description
-            , groupName = groupName
+            { name = pack name
+            , description = pack description
+            , groupName = pack groupName
             , baseAddress = read baseAddress
             , registers = registers
-            , derivedFrom = Nothing
+            , derivedFrom = pack <$> derivedFrom
             }
 
 getRegister = atTag "register" >>>
@@ -88,12 +89,12 @@ getRegister = atTag "register" >>>
         resetValue <- elemText "resetValue" -< x
         fields <- listA getField <<< list "fields" -< x
         returnA -< Register
-            { name = name
-            , displayName = displayName
-            , description = description
+            { name = pack name
+            , displayName = pack displayName
+            , description = pack description
             , addressOffset = read addressOffset
             , size = read size
-            , access = access
+            , access = pack <$> access
             , resetValue = read resetValue
             , fields = fields
             }
@@ -105,8 +106,8 @@ getField = atTag "field" >>>
         bitOffset <- elemText "bitOffset" -< x
         bitWidth <- elemText "bitWidth" -< x
         returnA -< Field
-            { name = name
-            , description = description
+            { name = pack name
+            , description = pack description
             , bitOffset = read bitOffset
             , bitWidth = read bitWidth
             }
@@ -114,12 +115,12 @@ getField = atTag "field" >>>
 getInterrupt = atTag "interrupt" >>>
     proc x -> do
         name <- elemText "name" -< x
-        value <- elemText "value" -< x
         description <- elemText "description" -< x
+        value <- elemText "value" -< x
         returnA -< Interrupt
-            { name = name
+            { name = pack name
+            , description = pack description
             , value = read value
-            , description = description
             }
  
 atTag tag = deep (isElem >>> hasName tag)
