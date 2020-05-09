@@ -1,12 +1,13 @@
-{-# LANGUAGE Arrows, NoMonomorphismRestriction, DuplicateRecordFields #-}
+{-# LANGUAGE Arrows, NoMonomorphismRestriction #-}
+{-# LANGUAGE RecordWildCards, DuplicateRecordFields #-}
 module Main (main) where
 
 import Text.XML.HXT.Core
 
 data SVD = SVD
     { name          :: String
-    , description   :: String
     , version       :: String
+    , description   :: String
     , peripherals   :: [Peripheral]
     } deriving (Show)
 
@@ -15,7 +16,6 @@ data Peripheral = Peripheral
     , description   :: String
     , groupName     :: String
     , baseAddress   :: Int
-    , interrupts    :: [Interrupt]
     , registers     :: [Register]
     , derivedFrom   :: Maybe String
     } deriving (Show)
@@ -46,11 +46,11 @@ data Field = Field
 
 getSVD = atTag "device" >>>
     proc x -> do
-        name <- text <<< atTag "name" -< x
-        version <- text <<< atTag "version" -< x
-        description <- text <<< atTag "description" -< x
-        ps <- atTag "peripherals" -< x
-        peripherals <- listA getPeripheral -< ps
+        name <- elemText "name" -< x
+        version <- elemText "version" -< x
+        description <- elemText "description" -< x
+        ps <- hasName "peripherals" <<< isElem <<< getChildren -< x
+        peripherals <- listA getPeripheral <<< list "peripherals" -< x
         returnA -< SVD
             { name = name
             , version = version
@@ -60,52 +60,48 @@ getSVD = atTag "device" >>>
 
 getPeripheral = atTag "peripheral" >>>
     proc x -> do
-        name <- text <<< atTag "name" -< x
-        description <- text <<< atTag "description" -< x
-        groupName <- text <<< atTag "groupName" -< x
-        baseAddress <- text <<< atTag "baseAddress" -< x
-        interrupts <- listA getInterrupt -< x
-        rs <- atTag "registers" -< x
-        registers <- listA getRegister -< rs
-        -- derivedFrom <- text <<< atTag "derivedFrom" -< x
+        name <- elemText "name" -< x
+        description <- elemText "description" -< x
+        groupName <- elemText "groupName" -< x
+        baseAddress <- elemText "baseAddress" -< x
+        derivedFrom <- elemTextMay "derivedFrom" -< x
+        registers <- listA getRegister <<< list "registers" -< x
         returnA -< Peripheral
             { name = name
             , description = description
             , groupName = groupName
             , baseAddress = read baseAddress
-            , interrupts = interrupts
             , registers = registers
             , derivedFrom = Nothing
             }
 
 getRegister = atTag "register" >>>
     proc x -> do
-        name <- text <<< atTag "name" -< x
-        displayName <- text <<< atTag "displayName" -< x
-        description <- text <<< atTag "description" -< x
-        addressOffset <- text <<< atTag "addressOffset" -< x
-        size <- text <<< atTag "size" -< x
-        -- access <- text <<< atTag "access" -< x
-        -- resetValue <- text <<< atTag "resetValue" -< x
-        fs <- atTag "fields" -< x
-        fields <- listA getField -< fs
+        name <- elemText "name" -< x
+        displayName <- elemText "displayName" -< x
+        description <- elemText "description" -< x
+        addressOffset <- elemText "addressOffset" -< x
+        size <- elemText "size" -< x
+        access <- elemTextMay "access" -< x
+        resetValue <- elemText "resetValue" -< x
+        fields <- listA getField <<< list "fields" -< x
         returnA -< Register
             { name = name
             , displayName = displayName
             , description = description
             , addressOffset = read addressOffset
             , size = read size
-            , access = Nothing
-            , resetValue = 0
+            , access = access
+            , resetValue = read resetValue
             , fields = fields
             }
 
 getField = atTag "field" >>>
     proc x -> do
-        name <- text <<< atTag "name" -< x
-        description <- text <<< atTag "description" -< x
-        bitOffset <- text <<< atTag "bitOffset" -< x
-        bitWidth <- text <<< atTag "bitWidth" -< x
+        name <- elemText "name" -< x
+        description <- elemText "description" -< x
+        bitOffset <- elemText "bitOffset" -< x
+        bitWidth <- elemText "bitWidth" -< x
         returnA -< Field
             { name = name
             , description = description
@@ -115,9 +111,9 @@ getField = atTag "field" >>>
 
 getInterrupt = atTag "interrupt" >>>
     proc x -> do
-        name <- text <<< atTag "name" -< x
-        value <- text <<< atTag "value" -< x
-        description <- text <<< atTag "description" -< x
+        name <- elemText "name" -< x
+        value <- elemText "value" -< x
+        description <- elemText "description" -< x
         returnA -< Interrupt
             { name = name
             , value = read value
@@ -126,11 +122,26 @@ getInterrupt = atTag "interrupt" >>>
  
 atTag tag = deep (isElem >>> hasName tag)
 
-text = getChildren >>> getText
+elemText tag
+    = getChildren
+    >>> isElem
+    >>> hasName tag
+    >>> getChildren
+    >>> getText
+
+elemTextMay tag
+    = (elemText tag >>> arr Just)
+    `orElse` (constA Nothing)
+
+list tag
+    = getChildren
+    >>> isElem
+    >>> hasName tag
 
 main :: IO ()
 main = do
-    s <- readFile "./svd/STM32F0x0.svd"
-    xs <- runX (readString [ withValidate yes ] s >>> getField)
+    let fn = "./svd/STM32F0x0.svd"
+    s <- readFile fn
+    xs <- runX (readString [ withValidate yes ] s >>> getSVD)
     mapM_ print xs
- 
+
