@@ -9,6 +9,7 @@ data SVD = SVD
     , version       :: String
     , description   :: String
     , peripherals   :: [Peripheral]
+    , interrupts    :: [Interrupt]
     } deriving (Show)
 
 data Peripheral = Peripheral
@@ -49,13 +50,14 @@ getSVD = atTag "device" >>>
         name <- elemText "name" -< x
         version <- elemText "version" -< x
         description <- elemText "description" -< x
-        ps <- hasName "peripherals" <<< isElem <<< getChildren -< x
         peripherals <- listA getPeripheral <<< list "peripherals" -< x
+        interrupts <- listA getInterrupt -< x
         returnA -< SVD
             { name = name
             , version = version
             , description = description
             , peripherals = peripherals
+            , interrupts = interrupts
             }
 
 getPeripheral = atTag "peripheral" >>>
