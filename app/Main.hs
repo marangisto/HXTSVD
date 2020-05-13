@@ -4,6 +4,8 @@ module Main (main) where
 
 import Text.XML.HXT.Core
 import Data.Text (Text, pack)
+import Data.Maybe (fromMaybe)
+import Control.Monad
 
 data SVD = SVD
     { name          :: !Text
@@ -64,15 +66,16 @@ getSVD = atTag "device" >>>
 getPeripheral = atTag "peripheral" >>>
     proc x -> do
         name <- elemText "name" -< x
-        description <- elemText "description" -< x
-        groupName <- elemText "groupName" -< x
+        description <- elemTextMay "description" -< x
+        groupName <- elemTextMay "groupName" -< x
         baseAddress <- elemText "baseAddress" -< x
         derivedFrom <- elemTextMay "derivedFrom" -< x
-        registers <- listA getRegister <<< list "registers" -< x
+        registers <- ( listA getRegister <<< list "registers"
+                     ) `orElse` (constA []) -< x
         returnA -< Peripheral
             { name = pack name
-            , description = pack description
-            , groupName = pack groupName
+            , description = pack $ fromMaybe "" description
+            , groupName = pack $ fromMaybe "" groupName
             , baseAddress = read baseAddress
             , registers = registers
             , derivedFrom = pack <$> derivedFrom
@@ -146,5 +149,7 @@ main = do
     let fn = "./svd/STM32F0x0.svd"
     s <- readFile fn
     xs <- runX (readString [ withValidate yes ] s >>> getSVD)
-    mapM_ print xs
+    forM_ xs $ \SVD{..} ->
+        forM_ peripherals $ \Peripheral{..} ->
+            print name
 
